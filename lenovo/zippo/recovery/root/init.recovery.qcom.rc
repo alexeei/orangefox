@@ -1,0 +1,182 @@
+
+on fs
+    wait /dev/block/platform/soc/${ro.boot.bootdevice}
+    symlink /dev/block/platform/soc/${ro.boot.bootdevice} /dev/block/bootdevice
+    export ANDROID_ROOT /system_root    
+    chmod 0660 /dev/qseecom
+    chown system drmrpc /dev/qseecom
+    chmod 0664 /dev/ion
+    chown system system /dev/ion
+    start set_permissive
+    install_keyring
+
+
+
+on init
+#    start logd
+#    export LD_LIBRARY_PATH /sbin:/usr/lib64:/usr/lib:/sbin/lib64:/sbin/lib
+#    export SHELL /sbin/sh
+#    export EXTERNAL_STORAGE /sdcard
+#    mount cgroup none /acct cpuacct
+#    mkdir /system
+#    mkdir /data
+#    mkdir /cache
+#    mkdir /sideload
+#    mount tmpfs tmpfs /tmp
+#    mkdir /sdcard
+#    chown root shell /tmp
+#    chmod 0775 /tmp
+#    mkdir /acct/uid
+    mkdir /system/bin
+    mkdir /system/etc
+    symlink /system/etc /etc
+    symlink /system/bin /bin
+    symlink /sbin/busybox /system/bin/sh
+    symlink /vendor/manifest.xml /system/manifest.xml
+#    write /proc/sys/kernel/panic_on_oops 1
+    start hwservicemanager
+#    start prepdecrypt
+#    start time_daemon
+#    start servicemanager
+    setprop crypto.ready 1
+
+# Separate copy needed to use /sbin/linker64 instead of /system/bin/linker64
+service sbinqseecomd /sbin/qseecomd
+    user root
+    group root
+    disabled
+    seclabel u:r:recovery:s0
+
+service hwservicemanager /sbin/hwservicemanager
+    user root
+    group root
+    disabled
+    onrestart setprop hwservicemanager.ready false
+    seclabel u:r:recovery:s0
+
+# service prepdecrypt /sbin/prepdecrypt.sh
+  #  oneshot
+  #  disabled
+  #  user root
+  #  group root
+  #  seclabel u:r:recovery:s0
+
+
+service servicemanager /sbin/servicemanager
+    user root
+    group root readproc
+    disabled
+    seclabel u:r:recovery:s0
+
+service set_permissive /sbin/permissive.sh
+    oneshot
+    seclabel u:r:recovery:s0
+
+service keystore_auth /sbin/keystore_auth
+    oneshot
+    user system
+    group root
+    disabled
+    seclabel u:r:recovery:s0
+
+service keystore /sbin/keystore /tmp/misc/keystore
+    user root
+    group root drmrpc readproc
+    disabled
+    seclabel u:r:recovery:s0
+
+service gatekeeper-1-0 /sbin/android.hardware.gatekeeper@1.0-service-qti
+    user root
+    group root
+    disabled
+    seclabel u:r:recovery:s0
+
+service keymaster-4-0 /sbin/android.hardware.keymaster@4.0-service-qti
+    user root
+    group root
+    disabled
+    seclabel u:r:recovery:s0
+
+
+#on property:hwservicemanager.ready=true
+#    start sbinqseecomd
+
+
+# on property:ro.crypto.state=unencrypted
+  #  stop sbinqseecomd
+  #  stop keymaster-4-0
+   # stop gatekeeper-1-0
+   # stop servicemanager
+   # stop hwservicemanager
+
+# on property:twrp.decrypt.done=true
+  #  stop sbinqseecomd
+   # stop keymaster-4-0
+   # stop gatekeeper-1-0
+   # stop servicemanager
+   # stop hwservicemanager
+
+on property:crypto.ready=0
+    stop sbinqseecomd
+    stop keymaster-4-0
+    stop gatekeeper-1-0
+    stop servicemanager
+
+on property:crypto.ready=1
+    start sbinqseecomd
+
+on property:vendor.sys.listeners.registered=true
+    start keymaster-4-0
+    start gatekeeper-1-0
+    start servicemanager
+
+
+
+on boot
+    setprop sys.usb.config adb
+    # Enable Power modes and set the CPU Freq Sampling rates
+    write /sys/module/msm_thermal/core_control/enabled 0
+    write /sys/devices/system/cpu/cpu1/online 1
+    write /sys/devices/system/cpu/cpu2/online 1
+    write /sys/devices/system/cpu/cpu3/online 1
+    write /sys/devices/system/cpu/cpu4/online 1
+    write /sys/devices/system/cpu/cpu5/online 1
+    write /sys/devices/system/cpu/cpu6/online 1
+    write /sys/devices/system/cpu/cpu7/online 1
+    write /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor "ondemand"
+    write /sys/devices/system/cpu/cpu1/cpufreq/scaling_governor "ondemand"
+    write /sys/devices/system/cpu/cpu2/cpufreq/scaling_governor "ondemand"
+    write /sys/devices/system/cpu/cpu3/cpufreq/scaling_governor "ondemand"
+    write /sys/devices/system/cpu/cpu4/cpufreq/scaling_governor "ondemand"
+    write /sys/devices/system/cpu/cpu5/cpufreq/scaling_governor "ondemand"
+    write /sys/devices/system/cpu/cpu6/cpufreq/scaling_governor "ondemand"
+    write /sys/devices/system/cpu/cpu7/cpufreq/scaling_governor "ondemand"
+    write /sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq 300000
+    write /sys/devices/system/cpu/cpu1/cpufreq/scaling_min_freq 300000
+    write /sys/devices/system/cpu/cpu2/cpufreq/scaling_min_freq 300000
+    write /sys/devices/system/cpu/cpu3/cpufreq/scaling_min_freq 300000
+    write /sys/devices/system/cpu/cpu4/cpufreq/scaling_min_freq 300000
+    write /sys/devices/system/cpu/cpu5/cpufreq/scaling_min_freq 300000
+    write /sys/devices/system/cpu/cpu6/cpufreq/scaling_min_freq 300000
+    write /sys/devices/system/cpu/cpu7/cpufreq/scaling_min_freq 300000
+    write /sys/module/msm_thermal/core_control/enabled 1
+    setprop recovery.perf.mode 0
+
+
+on property:recovery.perf.mode=1
+    write /sys/devices/system/cpu/cpu1/online 1
+    write /sys/devices/system/cpu/cpu2/online 1
+    write /sys/devices/system/cpu/cpu3/online 1
+    write /sys/devices/system/cpu/cpu4/online 1
+    write /sys/devices/system/cpu/cpu5/online 1
+    write /sys/devices/system/cpu/cpu6/online 1
+    write /sys/devices/system/cpu/cpu7/online 1
+
+on property:recovery.perf.mode=0
+    write /sys/devices/system/cpu/cpu1/online 1
+    write /sys/devices/system/cpu/cpu2/online 1
+    write /sys/devices/system/cpu/cpu3/online 1
+    write /sys/devices/system/cpu/cpu4/online 1
+    write /sys/devices/system/cpu/cpu5/online 1
+    write /sys/devices/system/cpu/cpu6/online 0
+    write /sys/devices/system/cpu/cpu7/online 0
